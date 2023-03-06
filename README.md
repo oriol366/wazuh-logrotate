@@ -32,10 +32,17 @@ It also includes two scripts to deploy a debug container:
 ## Environment Variables
 
 DAYS_TO_KEEP: The number of days that the logs will be kept on the host, after that time, all files backed up that day will be deleted and the data in the bucket will change its storage class to the one specified in the Environment Variable OLD_FILES_STORAGE_CLASS
+
 WAZUH_LOGS_PATH: Path mapped inside the container which has the logs from the Wazuh Manager
+
 BUCKET_NAME: Name of the S3 bucket
+
 CLIENT_NAME: This will put the logs on a folder with that name on the root folder of the S3 bucket
+
 AWS_ACCESS_KEY_ID: Access key ID of a cloud user which has privileges on the S3 bucket
+
 AWS_SECRET_ACCESS_KEY: Secret key of the cloud user
+
 AWS_DEFAULT_REGION: Cloud region where the S3 bucket is located
+
 OLD_FILES_STORAGE_CLASS: Storage class that will have files older than DAYS_TO_KEEP in the S3 bucket
