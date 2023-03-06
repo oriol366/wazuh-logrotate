@@ -1,0 +1,19 @@
+version: '3.7'
+
+services:
+  wazuh-logrotate:
+    image: oriol366/wazuh-logrotate:latest
+    container_name: wazuh-logrotate
+    restart: unless-stopped
+    volumes:
+      - ./logrotator:/cronfiles/logrotator
+      - /var/ossec/logs:/var/ossec/logs
+    environment:
+      - DAYS_TO_KEEP=2
+      - WAZUH_LOGS_PATH=/var/ossec/logs
+      - BUCKET_NAME=<BUCKET_NAME>
+      - CLIENT_NAME=testing
+      - AWS_ACCESS_KEY_ID=<ACCESS_KEY>
+      - AWS_SECRET_ACCESS_KEY=<ACCESS_SECRET_KEY>
+      - AWS_DEFAULT_REGION=eu-central-1
+      - OLD_FILES_STORAGE_CLASS=STANDARD_IA

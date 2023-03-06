@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: wazuh-manager-master
+spec:
+  template:
+    metadata:
+      labels:
+        app: wazuh-manager
+        node-type: master
+      name: wazuh-manager-master
+    spec:
+      volumes:
+        - name: logrotate-cron-config
+          configMap:
+            name: wazuh-logrotate-cron-config
+      containers:
+        - name: wazuh-logrotate
+          image: oriol366/wazuh-logrotate:latest
+          resources:
+            limits:
+              cpu: 100m
+              memory: 512Mi
+          volumeMounts:
+            - name: wazuh-manager-master
+              mountPath: /var/ossec/logs
+              subPath: wazuh/var/ossec/logs
+            - name: logrotate-cron-config
+              mountPath: /cronfiles
+          env:
+            - name: DAYS_TO_KEEP
+              value: '2'
+            - name: WAZUH_LOGS_PATH
+              value: '/var/ossec/logs'
+            - name: BUCKET_NAME
+              value: ''
+            - name: CLIENT_NAME
+              value: ''
+            - name: OLD_FILES_STORAGE_CLASS
+              value: 'STANDARD_IA'
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: wazuh-logrotate-aws-credentials
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wazuh-logrotate-aws-credentials
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: AWS_DEFAULT_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: wazuh-logrotate-aws-credentials
+                  key: AWS_DEFAULT_REGION
+          livenessProbe:
+            exec:
+              command:
+              - bash
+              - -c
+              - exit "$(cat /home/logrotator/monitorExitCode)"

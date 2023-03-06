@@ -1,0 +1,5 @@
+secrets/
+testing/logs/*
+testing/wazuh-logrotate-test.tar
+.dockerconfigjson
+registry-credentials.yml

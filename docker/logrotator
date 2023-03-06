@@ -1,0 +1,1 @@
+0 4 * * * /bin/bash /wazuh-rotate.sh

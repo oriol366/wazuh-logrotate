@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wazuh-logrotate-cron-config
+  namespace: 
+data:
+  logrotator: 0 4 * * * /bin/bash /wazuh-rotate.sh
