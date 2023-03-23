@@ -45,33 +45,75 @@ if [ ! -d "$path" ]; then
     exit 1
 fi
 
-cd $path
+cd $WAZUH_LOGS_PATH
 
-year=$(date +"%Y" -d "-1 day")
-month=$(date +"%b" -d "-1 day")
-dayMinusOne=$(date +"%d" -d "-1 day")
-
-#Backing up logs from yesterday
-/usr/bin/aws s3 cp . s3://${BUCKET_NAME}/${CLIENT_NAME}/ --recursive --exclude "*" --include "*/$year/$month/*$dayMinusOne.*"
-if [ $? -ne 0 ]; then
-  echo "$(date): ERROR while uploading new logs" >> /home/logrotator/errorMessages.log
-  echo "2" > /home/logrotator/monitorExitCode
-  exit 2
+standardBucketFiles=$(aws s3api list-objects-v2 --bucket ${BUCKET_NAME} --prefix ${CLIENT_NAME} --query 'Contents[?StorageClass==`STANDARD`][Key]' --output text)
+bucketFiles=$(echo "${standardBucketFiles//${CLIENT_NAME}/.}")
+if [ "$bucketFiles" = "None" ]; then
+  bucketFiles=" "
 fi
 
-#Retention Policy
-includedFilesRetention="$(date +"%d" -d "-$days days")"
+localFiles=$(find . -type f -mindepth 3)
 
-#Moving older files according to $DAYS_TO_KEEP to the designated storage class
-/usr/bin/aws s3 mv s3://${BUCKET_NAME}/${CLIENT_NAME}/ s3://${BUCKET_NAME}/${CLIENT_NAME}/$OLD_FILES_STORAGE_CLASS/ --recursive --exclude "*" --include "*$includedFilesRetention.*" --exclude "$OLD_FILES_STORAGE_CLASS/*" --storage-class $OLD_FILES_STORAGE_CLASS
-if [ $? -ne 0 ]; then
-  echo "$(date): ERROR while changing storage class on S3 old logs" >> /home/logrotator/errorMessages.log
-  echo "2" > /home/logrotator/monitorExitCode
-  exit 2
-fi
+limitDate=$(date -d "-$days days" +%s)
 
-#This line removes the same files that were moved to the other storage class
-rm */$(date +"%Y" -d "-$days days")/$(date +"%b" -d "-$days days")/*$(date +"%d" -d "-$days days").*
+#-1 -> SUPRESS unique lines in file1   -2 -> SUPRESS unique lines in file2
+#Files present only on local host
+comm -13 <(echo "${bucketFiles}" | tr ' ' '\n' | sort) <(echo "${localFiles}" | tr ' ' '\n' | sort) | while read line ; do
+  year=$(echo "${line}" | cut -d'/' -f3)
+  month=$(echo "${line}" | cut -d'/' -f4)
+  day=$(echo "${line}" | cut -d'.' -f2 | awk -F '-' '{print $NF}')
+
+  if [[ ${day} == "$(date +%d)" && ${month} == "$(date +%b)" && ${year} == "$(date +%Y)" ]]; then
+    continue
+  fi
+  dateFile=$(date -d "$day-$month-$year" +%s)
+
+  # Substitute the first dot with the client name to match the bucket structure
+  dest=$(echo "${line/./${CLIENT_NAME}}")
+  # if file is older than limit date is moved to the bucket with cheaper storage class and deleted from local storage
+  if [ "$dateFile" -le "$limitDate" ]; then
+    #"${dest%$(basename "$dest")}"
+    /usr/bin/aws s3api put-object --body ${line} --bucket ${BUCKET_NAME} --key ${dest} --storage-class $OLD_FILES_STORAGE_CLASS
+    if [ $? -ne 0 ]; then
+      echo "$(date): ERROR (1) while uploading log file: ${line}" >> /home/logrotator/errorMessages.log
+      echo "2" > /home/logrotator/monitorExitCode
+      exit 2
+    fi
+    rm ${line}
+  else
+    /usr/bin/aws s3api put-object --body ${line} --bucket ${BUCKET_NAME} --key ${dest}
+    if [ $? -ne 0 ]; then
+      echo "$(date): ERROR (2) while uploading log file: ${line}" >> /home/logrotator/errorMessages.log
+      echo "2" > /home/logrotator/monitorExitCode
+      exit 2
+    fi
+  fi
+done
+
+#Files in both locations with STANDARD storage class
+comm -12 <(echo "${bucketFiles}" | tr ' ' '\n' | sort) <(echo "${localFiles}" | tr ' ' '\n' | sort) | while read line ; do
+  year=$(echo "${line}" | cut -d'/' -f3)
+  month=$(echo "${line}" | cut -d'/' -f4)
+  day=$(echo "${line}" | cut -d'.' -f2 | awk -F '-' '{print $NF}')
+
+  if [[ ${day} == "$(date +%d)" && ${month} == "$(date +%b)" && ${year} == "$(date +%Y)" ]]; then
+    continue
+  fi
+  dateFile=$(date -d "$day-$month-$year" +%s)
+  
+  # if file is older than limit date its storage class changes to a cheaper one and deleted from local storage
+  if [ "$dateFile" -le "$limitDate" ]; then
+    dest=$(echo "${line/./${CLIENT_NAME}}")
+    /usr/bin/aws s3api copy-object --copy-source ${BUCKET_NAME}/${dest} --bucket ${BUCKET_NAME} --key ${dest} --storage-class $OLD_FILES_STORAGE_CLASS
+    if [ $? -ne 0 ]; then
+      echo "$(date): ERROR (3) while changing storage class from file ${line}" >> /home/logrotator/errorMessages.log
+      echo "2" > /home/logrotator/monitorExitCode
+      exit 2
+    fi
+    rm ${line}
+  fi
+done
 
 echo "0" > /home/logrotator/monitorExitCode
 exit 0
