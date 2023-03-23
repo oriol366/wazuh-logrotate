@@ -9,6 +9,7 @@ spec:
         app: wazuh-manager
         node-type: master
       name: wazuh-manager-master
+      namespace: <namespace>
     spec:
       volumes:
         - name: logrotate-cron-config

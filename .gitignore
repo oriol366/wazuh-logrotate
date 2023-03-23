@@ -1,5 +1,7 @@
 secrets/
 testing/logs/*
 testing/wazuh-logrotate-test.tar
+testing/wazuh-rotate-testing_old.sh
 .dockerconfigjson
 registry-credentials.yml
+wazuh-rotate_old.sh
