@@ -1,6 +1,6 @@
 #!/bin/bash
 
-docker run -it --rm -v $PWD/cronfiles:/cronfiles -v $PWD/logs:/var/ossec/logs \
+docker run -it --rm -v $PWD/cronfiles:/cronfiles -v $PWD/logs:/var/ossec/logs --hostname=${LOGROTATE_HOST} \
     -e DAYS_TO_KEEP=2 -e WAZUH_LOGS_PATH=/var/ossec/logs -e BUCKET_NAME=${BUCKET_NAME} \
     -e CLIENT_NAME=${CLIENT_NAME} -e AWS_ACCESS_KEY_ID=${ACCESS_KEY_ID} \
     -e AWS_SECRET_ACCESS_KEY=${SECRET_ACCESS_KEY} \
