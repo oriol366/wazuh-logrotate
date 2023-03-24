@@ -46,9 +46,9 @@ if [ ! -d "$path" ]; then
 fi
 
 cd $WAZUH_LOGS_PATH
-
-standardBucketFiles=$(aws s3api list-objects-v2 --bucket ${BUCKET_NAME} --prefix ${CLIENT_NAME} --query 'Contents[?StorageClass==`STANDARD`][Key]' --output text)
+standardBucketFiles=$(aws s3api list-objects-v2 --bucket ${BUCKET_NAME} --prefix ${CLIENT_NAME} --query 'Contents[?StorageClass==`STANDARD` && ends_with(Key, `$(echo $HOSTNAME | cut -d'-' -f3,4)`)][Key]' --output text)
 bucketFiles=$(echo "${standardBucketFiles//${CLIENT_NAME}/.}")
+bucketFiles=$(echo "${bucketFiles//-$(echo ${HOSTNAME} | cut -d'-' -f3,4)/}")
 if [ "$bucketFiles" = "None" ]; then
   bucketFiles=" "
 fi
@@ -71,6 +71,7 @@ comm -13 <(echo "${bucketFiles}" | tr ' ' '\n' | sort) <(echo "${localFiles}" | 
 
   # Substitute the first dot with the client name to match the bucket structure
   dest=$(echo "${line/./${CLIENT_NAME}}")
+  dest="${dest}-$(echo $HOSTNAME | cut -d'-' -f3,4)"
   # if file is older than limit date is moved to the bucket with cheaper storage class and deleted from local storage
   if [ "$dateFile" -le "$limitDate" ]; then
     #"${dest%$(basename "$dest")}"
@@ -105,6 +106,7 @@ comm -12 <(echo "${bucketFiles}" | tr ' ' '\n' | sort) <(echo "${localFiles}" | 
   # if file is older than limit date its storage class changes to a cheaper one and deleted from local storage
   if [ "$dateFile" -le "$limitDate" ]; then
     dest=$(echo "${line/./${CLIENT_NAME}}")
+    dest="${dest}-$(echo $HOSTNAME | cut -d'-' -f3,4)"
     /usr/bin/aws s3api copy-object --copy-source ${BUCKET_NAME}/${dest} --bucket ${BUCKET_NAME} --key ${dest} --storage-class $OLD_FILES_STORAGE_CLASS
     if [ $? -ne 0 ]; then
       echo "$(date): ERROR (3) while changing storage class from file ${line}" >> /home/logrotator/errorMessages.log
